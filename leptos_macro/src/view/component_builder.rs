@@ -78,6 +78,7 @@ pub(crate) fn component_to_tokens(
                 && !attr_key.starts_with("prop:")
                 && !attr_key.starts_with("on:")
                 && !attr_key.starts_with("use:")
+                && !is_dashed_attr(&attr.key)
         }
     }) {
         let optional = is_nostrip_optional_and_update_key(&mut attr.key);
@@ -132,8 +133,9 @@ pub(crate) fn component_to_tokens(
 
     // include all attribute that are either
     // 1) blocks ({..attrs} or {attrs}),
-    // 2) start with attr: and can be used as actual attributes, or
-    // 3) the custom attribute types (on:, class:, style:, prop:, use:)
+    // 2) start with attr: and can be used as actual attributes,
+    // 3) the custom attribute types (on:, class:, style:, prop:, use:), or
+    // 4) contain a dash, and so can never be a prop
     let spreads = node
         .attributes()
         .iter()
@@ -166,7 +168,11 @@ pub(crate) fn component_to_tokens(
                     }
                 })))
             } else if let NodeAttribute::Attribute(node) = attr {
-                attribute_absolute(node, idx >= spread_marker).transpose()
+                attribute_absolute(
+                    node,
+                    idx >= spread_marker || is_dashed_attr(&node.key),
+                )
+                .transpose()
             } else {
                 None
             }
@@ -318,6 +324,11 @@ pub(crate) fn component_to_tokens(
     IdeTagHelper::add_component_completion(&mut component, node); */
 
     Ok(component)
+}
+
+fn is_dashed_attr(key: &NodeName) -> bool {
+    let key = key.to_string();
+    key.contains('-') && !key.contains(':')
 }
 
 fn is_attr_let(key: &NodeName) -> bool {
